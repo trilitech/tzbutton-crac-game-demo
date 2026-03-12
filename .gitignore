@@ -1,0 +1,15 @@
+node_modules/
+package-lock.json
+
+.env
+.env.*
+!.env.example
+
+evm-airdrop-app/
+
+xbutton-frontend/node_modules/
+xbutton-frontend/dist/
+
+xbutton-relayer/node_modules/
+
+tezosx-tezlink/.ligo/

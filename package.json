@@ -1,0 +1,12 @@
+{
+  "name": "tezosx-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n frontend,relayer -c cyan,green \"npm --prefix xbutton-frontend run dev\" \"npm --prefix xbutton-relayer run dev\"",
+    "dev:frontend": "npm --prefix xbutton-frontend run dev",
+    "dev:relayer": "npm --prefix xbutton-relayer run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
