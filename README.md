@@ -57,6 +57,14 @@ These are the values currently used in the workspace:
 - Michelson contract: `KT1BKvMg5EWcv1TFMkvxo2zAAbUbUefh8EvS`
 - CRAC precompile: `0xff00000000000000000000000000000000000007`
 
+## Get Testnet USDC
+
+Before using the XButton demo, fund your wallet with testnet USDC on TezosX EVM using the hosted faucet:
+
+- [https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)
+
+Use that app to send testnet USDC to the same MetaMask wallet you will use in `xbutton-frontend`.
+
 ## Running The XButton Demo
 
 From the workspace root:
