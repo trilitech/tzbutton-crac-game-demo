@@ -1,6 +1,6 @@
 # TezosX Workspace
 
-This workspace contains the pieces used for the Tezos X / CRAC XButton demo, plus a separate USDC faucet app.
+This workspace contains the pieces used for the Tezos X / CRAC XButton demo.
 
 ## What Each Folder Does
 
@@ -35,12 +35,6 @@ It stores:
 - pot
 - session end
 - claimed flag
-
-### `evm-airdrop-app`
-
-Separate Next.js USDC faucet app for TezosX EVM.
-
-This is not required for the XButton demo itself, but it is included in the workspace and has its own README.
 
 ## XButton Demo Flow
 
@@ -82,4 +76,5 @@ That starts:
 - The relayer is separate from the frontend. If the relayer is not running, the Tezos-side pot will not update.
 - The contract session must be active before deposits will update state.
 - The frontend has hardcoded demo values at the moment, based on the addresses already in this workspace.
+- `evm-airdrop-app` exists locally in the workspace, but it is intentionally excluded from this root repository.
 - Each project folder contains its own README with more detail.
