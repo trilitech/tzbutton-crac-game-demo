@@ -2,6 +2,8 @@
 
 This workspace contains the pieces used for the Tezos X / CRAC XButton demo.
 
+**Testnet funds:** Get USDC (and XTZ) on TezosX EVM from the hosted faucet: **[https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)** — enter your MetaMask address and request the default airdrop (e.g. 10 USDC) before playing.
+
 ## What Each Folder Does
 
 ### `xbutton-frontend`
@@ -57,11 +59,7 @@ The EVM RPC exposes **`tez_getEthereumTezosAddress`** and **`tez_getTezosEthereu
 
 ## Get Testnet USDC
 
-Before using the XButton demo, fund your wallet with testnet USDC on TezosX EVM using the hosted faucet:
-
-- [https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)
-
-Use that app to send testnet USDC to the same MetaMask wallet you will use in `xbutton-frontend`.
+Use the **TezosX EVM Airdrop** faucet: **[https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)** — connect or paste your wallet address, choose USDC (or XTZ), and send testnet funds. Use the same MetaMask wallet in `xbutton-frontend` so you can deposit 1 USDC per press.
 
 ## Running The XButton Demo
 
