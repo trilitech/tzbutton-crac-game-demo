@@ -150,6 +150,10 @@
   color: #f7a7a7;
 }
 
+.faucet-hint {
+  margin-top: 18px;
+}
+
 .action-panel {
   padding-bottom: 26px;
 }

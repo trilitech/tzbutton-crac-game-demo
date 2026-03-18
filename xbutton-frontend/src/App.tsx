@@ -17,6 +17,8 @@ const cracPrecompile =
 const usdcDecimals = Number(import.meta.env.VITE_USDC_DECIMALS ?? "6");
 const pressAmount = import.meta.env.VITE_PRESS_AMOUNT ?? "1";
 const pollIntervalMs = Number(import.meta.env.VITE_POLL_INTERVAL_MS ?? "5000");
+const faucetUrl =
+  import.meta.env.VITE_FAUCET_URL ?? "https://tezosx-evm-usdc-airdrop.vercel.app/";
 
 const tzktApiUrl = tezlinkRpc.replace(/\/rpc\/tezlink\/?$/, "") + "/tzkt";
 
@@ -825,6 +827,19 @@ function App() {
               </strong>
             </div>
           </div>
+
+          <p className="inline-note faucet-hint">
+            Need testnet funds? Get some from the{" "}
+            <a
+              href={faucetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explorer-link"
+            >
+              faucet
+            </a>
+            .
+          </p>
 
           {!hasMetaMask ? (
             <p className="inline-note error">MetaMask was not detected in this browser.</p>
