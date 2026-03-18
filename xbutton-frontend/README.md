@@ -55,9 +55,7 @@ npm run preview
 - the relayer running in `xbutton-relayer`
 - an active session on the Tezos contract
 
-If your wallet needs testnet USDC first, use the hosted faucet:
-
-- [https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)
+If your wallet needs testnet USDC first, use the hosted TezosX EVM faucet: [https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/) (override via `VITE_FAUCET_URL` if needed).
 
 ## Related Folders
 

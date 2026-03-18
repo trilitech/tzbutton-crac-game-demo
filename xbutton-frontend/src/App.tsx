@@ -17,8 +17,9 @@ const cracPrecompile =
 const usdcDecimals = Number(import.meta.env.VITE_USDC_DECIMALS ?? "6");
 const pressAmount = import.meta.env.VITE_PRESS_AMOUNT ?? "1";
 const pollIntervalMs = Number(import.meta.env.VITE_POLL_INTERVAL_MS ?? "5000");
+const DEFAULT_TESTNET_FAUCET_URL = "https://tezosx-evm-usdc-airdrop.vercel.app/";
 const faucetUrl =
-  import.meta.env.VITE_FAUCET_URL ?? "https://tezosx-evm-usdc-airdrop.vercel.app/";
+  import.meta.env.VITE_FAUCET_URL?.trim() || DEFAULT_TESTNET_FAUCET_URL;
 
 const tzktApiUrl = tezlinkRpc.replace(/\/rpc\/tezlink\/?$/, "") + "/tzkt";
 
@@ -309,15 +310,14 @@ function App() {
     !isClaiming &&
     Boolean(gameState);
 
-  // Show when session has ended and contract would accept start_session (first time or after payout completed).
+  // Session ended: allow starting a new round even if prior claim/payout is still pending (on-chain reset).
   const canStartNewSession =
     hasMetaMask &&
     Boolean(walletState.address) &&
     onExpectedNetwork &&
     !isStartingSession &&
     Boolean(gameState) &&
-    !sessionActive &&
-    Boolean(gameState && (!gameState.claimed || gameState.payoutCompleted));
+    !sessionActive;
 
   const sessionLabel = useMemo(() => {
     if (!gameState) return "Loading...";
@@ -764,7 +764,7 @@ function App() {
       setActionState({
         kind: "error",
         message: isRevert
-          ? "Start session failed (e.g. payout still pending). Refresh to see current state."
+          ? "Start session failed. Refresh and try again."
           : (error instanceof Error ? error.message : "Start session failed."),
       });
     } finally {
@@ -916,7 +916,7 @@ function App() {
 
           <p className="action-copy">
             {canStartNewSession
-              ? "A new session is initiated on the TezosX EVM side but sent to the Game contract on Tezlink via the CRAC Gateway."
+              ? "Starts a fresh session on the game contract (resets pot and claim state). Use when the previous session ended — even if winnings were not claimed yet or payout is still pending."
               : "Press once to deposit 1 USDC to the escrow. If needed, approve and deposit happen in sequence. The relayer detects the deposit and calls `record_deposit` through the CRAC gateway."}
           </p>
 

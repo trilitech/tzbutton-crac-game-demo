@@ -1,84 +1,53 @@
 # TezosX Workspace
 
-This workspace contains the pieces used for the Tezos X / CRAC XButton demo.
+Demo pieces for the Tezos X / CRAC XButton flow: EVM deposits, relayer → Tezlink, Michelson game state.
 
-**Testnet funds:** Get USDC (and XTZ) on TezosX EVM from the hosted faucet: **[https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)** — enter your MetaMask address and request the default airdrop (e.g. 10 USDC) before playing.
+**Testnet funds:** Hosted faucet for TezosX EVM (USDC / XTZ): **[https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)** — use the same wallet you use in the demo frontend.
 
-## What Each Folder Does
+## Layout
 
-### `xbutton-frontend`
+| Area | Role |
+|------|------|
+| **Frontend** | React + Vite: MetaMask, Tezlink polling, USDC to escrow, CRAC calls. |
+| **Relayer** | Node: watches escrow `Deposited` events, Micheline payload, CRAC `callMichelson` → `record_deposit`. |
+| **Contracts** | EVM (`xUSDC`, `xEscrow`) under `contracts/evm`; Tezlink game (LIGO / Michelson) under `contracts/tezlink`. |
 
-Small React + Vite frontend for the XButton demo.
+## Demo flow
 
-It:
-- connects MetaMask
-- shows EVM wallet and network status
-- polls Tezlink storage from the Michelson contract
-- sends `1 USDC` to the pot address
-- waits for the Tezos-side game state to update
+1. Connect a wallet in the frontend on the TezosX EVM network.
+2. Approve/deposit **1 USDC** to the configured escrow (pot) address.
+3. The relayer sees the deposit and forwards it through the CRAC precompile.
+4. The Michelson contract updates **pot** / **last player** (when the on-chain session is active).
+5. The frontend polls Tezlink and shows live state.
 
-### `xbutton-relayer`
+## Example network values
 
-Node.js relayer that watches EVM USDC transfers to the pot address and forwards them into the Tezos runtime through the CRAC gateway precompile.
-
-It:
-- listens for `Deposited` events on the escrow contract
-- encodes `(player, amount)` as raw Micheline bytes
-- calls the CRAC precompile (`callMichelson`)
-- triggers `record_deposit` on the Tezos game contract
-
-### `contracts/`
-
-- **`contracts/evm`** – EVM contracts: `xUSDC.sol` (ERC-20 token), `xEscrow.sol` (XButtonEscrow).
-- **`contracts/tezlink`** – CameLIGO / Michelson XButton game (`last_player`, `pot`, `session_end`, `claim_requested`, `payout_completed`).
-
-## XButton Demo Flow
-
-1. A player connects MetaMask in `xbutton-frontend`.
-2. The player presses the button, which sends `1 USDC` to the pot address on the EVM runtime.
-3. `xbutton-relayer` detects the ERC-20 transfer event.
-4. The relayer encodes the payload and calls the CRAC gateway precompile.
-5. The Tezos runtime contract in `contracts/tezlink` updates storage.
-6. `xbutton-frontend` polls Tezlink and shows the updated pot / player state.
-
-## Shared Live Demo Values
-
-These are the values currently used in the workspace:
+Point `.env` at your deployment; defaults in the repo target the public demo RPCs:
 
 - EVM RPC: `https://demo.txpark.nomadic-labs.com/rpc`
 - Tezlink RPC: `https://demo.txpark.nomadic-labs.com/rpc/tezlink`
 - Chain ID: `127124`
-- USDC token: `0x92E791DF3Dd5A8704f0e7d9B3003A0627d95d017`
-- Pot address: `0xA8D4F48e9E5a17e13Bfbe3A60bbEd85b96552277`
-- Michelson contract: `KT1Whp8174wXWCmhKKojfS3AdzKgTRaH9mie`
-- CRAC precompile: `0xff00000000000000000000000000000000000007`
+- Demo USDC / pot / `KT1` game contract — see each package’s `.env.example`; README values can drift.
 
 ## Tezos ↔ EVM address helpers
 
-The EVM RPC exposes **`tez_getEthereumTezosAddress`** and **`tez_getTezosEthereumAddress`** (see chain docs). The game contract’s `mark_paid` entrypoint is permissionless (guarded by claim state only); CRAC does not reliably expose the caller as a specific Tezos `SENDER` for admin-style checks.
+The EVM RPC exposes **`tez_getEthereumTezosAddress`** and **`tez_getTezosEthereumAddress`** (chain docs). The game’s `mark_paid` entrypoint is permissionless (claim-state only); CRAC does not map callers to a fixed Tezos `SENDER` for admin-style checks.
 
-## Get Testnet USDC
+## Run locally
 
-Use the **TezosX EVM Airdrop** faucet: **[https://tezosx-evm-usdc-airdrop.vercel.app/](https://tezosx-evm-usdc-airdrop.vercel.app/)** — connect or paste your wallet address, choose USDC (or XTZ), and send testnet funds. Use the same MetaMask wallet in `xbutton-frontend` so you can deposit 1 USDC per press.
-
-## Running The XButton Demo
-
-From the workspace root:
+From the **root of your clone**:
 
 ```bash
-cd /Users/adebolaadeniran/Documents/tezosx
 npm install
 npm run dev
 ```
 
-That starts:
-- `xbutton-frontend`
-- `xbutton-relayer`
+That runs the frontend and relayer together (see root `package.json`). Configure env files in each app (see their `.env.example` files).
 
-## Important Notes
+## Notes
 
-- The relayer is separate from the frontend. If the relayer is not running, the Tezos-side pot will not update.
-- The contract session must be active before deposits will update state.
-- Configure **`xbutton-frontend/.env`** and **`xbutton-relayer/.env`** (see `.env.example` in the frontend). Demo addresses in README may be stale.
-- `evm-airdrop-app` exists locally in the workspace, but it is intentionally excluded from this root repository.
-- Each project folder contains its own README with more detail.
+- **Relayer must be running** or Tezlink state will not update after deposits.
+- An **active session** on the game contract is required for `record_deposit` to apply.
+- Override the default faucet link in the frontend via `VITE_FAUCET_URL` if you use another tap.
+- **Start new session** / claim / payout flow is documented in **`contracts/tezlink/README.md`**.
+- Subdirectories include their own READMEs for detail.

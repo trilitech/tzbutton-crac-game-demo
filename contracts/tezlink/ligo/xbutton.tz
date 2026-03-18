@@ -55,26 +55,19 @@
                                UPDATE 3 ;
                                NIL operation ;
                                PAIR } } }
-                   { DUP 2 ;
-                     GET 8 ;
-                     NOT ;
-                     DUP 3 ;
-                     GET 7 ;
-                     AND ;
-                     IF { PUSH string "PAYOUT_PENDING" ; FAILWITH }
-                        { SWAP ;
-                          PUSH bytes 0x0000000000000000000000000000000000000000 ;
-                          UPDATE 1 ;
-                          PUSH nat 0 ;
-                          UPDATE 3 ;
-                          SWAP ;
-                          NOW ;
-                          ADD ;
-                          UPDATE 5 ;
-                          PUSH bool False ;
-                          UPDATE 7 ;
-                          PUSH bool False ;
-                          UPDATE 8 ;
-                          NIL operation ;
-                          PAIR } } } } } }
+                   { SWAP ;
+                     PUSH bytes 0x0000000000000000000000000000000000000000 ;
+                     UPDATE 1 ;
+                     PUSH nat 0 ;
+                     UPDATE 3 ;
+                     SWAP ;
+                     NOW ;
+                     ADD ;
+                     UPDATE 5 ;
+                     PUSH bool False ;
+                     UPDATE 7 ;
+                     PUSH bool False ;
+                     UPDATE 8 ;
+                     NIL operation ;
+                     PAIR } } } } }
 

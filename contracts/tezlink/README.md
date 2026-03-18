@@ -14,7 +14,7 @@ This folder contains the **XButton game contract** for the Tezos runtime (Tezlin
    - `last_player` (bytes), `pot` (nat), `session_end` (timestamp), `claim_requested` (bool), `payout_completed` (bool).
 
 2. **Entrypoints**
-   - **`start_session(duration)`** — Callable by **anyone**. Fails only if `claim_requested && not payout_completed` (PAYOUT_PENDING). Resets pot, last player, session end, and claim flags. Use from the frontend (“Start new session” via CRAC) or octez-client.
+   - **`start_session(duration)`** — Callable by **anyone**. Resets pot, last player, session end, and claim flags (including abandoning an in-flight claim that has not been paid out yet — demo reset). Use from the frontend (“Start new session” via CRAC) or octez-client.
    - **`record_deposit(player, amount)`** — Called by the relayer via CRAC after an escrow `Deposited` event. Updates `last_player` and `pot`.
    - **`claim()`** — Callable by anyone; sets `claim_requested = true` so the relayer can run `escrow.payout(winner, amount)` and then `mark_paid`.
    - **`mark_paid()`** — Callable by anyone (guarded by `NO_CLAIM_REQUESTED` / `ALREADY_PAID`). Sets `payout_completed = true`.
@@ -68,7 +68,7 @@ Replace `<PASTE_OUTPUT_OF_LIGO_COMPILE_STORAGE_HERE>` with the exact output from
 
 ### Start a session (after origination)
 
-**Option A — From the frontend:** After the previous session is claimed and paid, the “Start new session” button appears; click it to call `start_session` via CRAC from MetaMask (no octez-client needed).
+**Option A — From the frontend:** After the previous session **ends**, the “Start new session” button appears (even if no one claimed yet, or claim is pending payout). Click it to call `start_session` via CRAC from MetaMask.
 
 **Option B — From octez-client (any key):**
 

@@ -11,17 +11,15 @@ module XButton = struct
 
   [@entry]
   let start_session (duration : int) (store : storage) : return_ =
-    if store.claim_requested && not store.payout_completed then
-      (failwith "PAYOUT_PENDING" : return_)
-    else
-      ([], {
-        store with
-        last_player = 0x0000000000000000000000000000000000000000;
-        pot = 0n;
-        session_end = Tezos.get_now () + duration;
-        claim_requested = false;
-        payout_completed = false
-      })
+    (* Resets game even if a claim is still pending payout — demo escape hatch. *)
+    ([], {
+      store with
+      last_player = 0x0000000000000000000000000000000000000000;
+      pot = 0n;
+      session_end = Tezos.get_now () + duration;
+      claim_requested = false;
+      payout_completed = false
+    })
 
   [@entry]
   let record_deposit ((player, amount) : bytes * nat) (store : storage) : return_ =

@@ -5,6 +5,7 @@ package-lock.json
 .env.*
 !.env.example
 
+# Local-only; not part of this repository
 evm-airdrop-app/
 
 tezosx-tezlink/
