@@ -20,10 +20,10 @@ It:
 Node.js relayer that watches EVM USDC transfers to the pot address and forwards them into the Tezos runtime through the CRAC gateway precompile.
 
 It:
-- listens for ERC-20 `Transfer` events to the pot
-- encodes raw Micheline bytes
-- calls the CRAC precompile
-- triggers `record_deposit` on the Michelson contract
+- listens for `Deposited` events on the escrow contract
+- encodes `(player, amount)` as raw Micheline bytes
+- calls the CRAC precompile (`callMichelson`)
+- triggers `record_deposit` on the Tezos game contract
 
 ### `contracts/`
 

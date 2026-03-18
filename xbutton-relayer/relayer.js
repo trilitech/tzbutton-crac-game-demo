@@ -100,7 +100,7 @@ async function checkClaimAndPayout() {
   console.log('[relayer] Winner detected:', winner);
   console.log('[relayer] Amount:', amount.toString());
 
-  // Check if the escrow already emitted PaidOut for this winner+amount (e.g. previous run).
+  // Check if the escrow already emitted PaidOut for this winner (e.g. previous run, within last 999 blocks).
   const existingPayoutTx = await checkAlreadyPaidOut(winner);
   if (existingPayoutTx || payoutSent) {
     console.log('[relayer] Payout already on-chain (tx:', existingPayoutTx ?? 'this run', '); skipping — calling mark_paid to sync Tezos.');
