@@ -19,19 +19,22 @@ Minimal React + Vite frontend for the Tezos X / CRAC XButton demo.
 
 The frontend only sends the ERC-20 transfer. The relayer is what notices that transfer and calls the CRAC precompile.
 
-## Live Values Used
+## Configuration
 
-- EVM RPC: `https://demo.txpark.nomadic-labs.com/rpc`
-- Tezlink RPC: `https://demo.txpark.nomadic-labs.com/rpc/tezlink`
-- Chain ID: `127124`
-- USDC token: `0x92E791DF3Dd5A8704f0e7d9B3003A0627d95d017`
-- Pot address: `0xA8D4F48e9E5a17e13Bfbe3A60bbEd85b96552277`
-- Game contract: `KT1BKvMg5EWcv1TFMkvxo2zAAbUbUefh8EvS`
+Copy `.env.example` to `.env` and adjust as needed. All values use the `VITE_` prefix.
+
+- `VITE_EVM_RPC` – EVM RPC URL
+- `VITE_TEZLINK_RPC` – Tezlink RPC URL
+- `VITE_CHAIN_ID` – Chain ID (e.g. `127124`)
+- `VITE_USDC_ADDRESS` – USDC token address
+- `VITE_POT_ADDRESS` – Pot address
+- `VITE_GAME_CONTRACT` – Michelson contract address
 
 ## Run Locally
 
 ```bash
 cd /Users/adebolaadeniran/Documents/tezosx/xbutton-frontend
+cp .env.example .env   # if .env doesn't exist
 npm install
 npm run dev
 ```
@@ -59,5 +62,5 @@ If your wallet needs testnet USDC first, use the hosted faucet:
 ## Related Folders
 
 - `../xbutton-relayer` handles the EVM-to-Tezos forwarding
-- `../tezosx-tezlink` contains the contract source
+- `../contracts/tezlink` contains the Tezos game contract source
 - `../README.md` explains the full workspace flow

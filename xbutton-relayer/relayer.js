@@ -4,34 +4,132 @@ import { ethers } from 'ethers';
 const {
   EVM_RPC,
   RELAYER_PRIVATE_KEY,
-  USDC_ADDRESS,
   POT_ADDRESS,
   GAME_KT1,
   CRAC_PRECOMPILE,
+  TEZLINK_RPC,
 } = process.env;
 
-if (!EVM_RPC || !RELAYER_PRIVATE_KEY || !USDC_ADDRESS || !POT_ADDRESS || !GAME_KT1 || !CRAC_PRECOMPILE) {
-  throw new Error('Missing required env vars');
+if (!EVM_RPC || !RELAYER_PRIVATE_KEY || !POT_ADDRESS || !GAME_KT1 || !CRAC_PRECOMPILE || !TEZLINK_RPC) {
+  throw new Error('Missing required env vars (EVM_RPC, RELAYER_PRIVATE_KEY, POT_ADDRESS, GAME_KT1, CRAC_PRECOMPILE, TEZLINK_RPC)');
 }
+
+const tezlinkStorageUrl = `${TEZLINK_RPC}/chains/main/blocks/head/context/contracts/${GAME_KT1}/storage`;
 
 const provider = new ethers.JsonRpcProvider(EVM_RPC);
 const wallet = new ethers.Wallet(RELAYER_PRIVATE_KEY, provider);
-const potAddressLower = POT_ADDRESS.toLowerCase();
 
 const START_BLOCK_LOOKBACK = 20;
 const POLL_INTERVAL_MS = 5000;
 
-const usdcAbi = [
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
+const escrowAbi = [
+  'event Deposited(address indexed player, uint256 amount)',
+  'event PaidOut(address indexed winner, uint256 amount)',
+  'function payout(address winner, uint256 amount)',
 ];
 const gatewayAbi = [
-  'function call(string destination, string entrypoint, bytes data) external payable',
+  'function callMichelson(string destination, string entrypoint, bytes data) external payable',
 ];
 
-const usdc = new ethers.Contract(USDC_ADDRESS, usdcAbi, provider);
+const escrow = new ethers.Contract(POT_ADDRESS, escrowAbi, provider);
+const escrowWithWallet = new ethers.Contract(POT_ADDRESS, escrowAbi, wallet);
 const gateway = new ethers.Contract(CRAC_PRECOMPILE, gatewayAbi, wallet);
 
 const processed = new Set();
+let payoutSent = false;
+
+// Gas limit for CRAC callMichelson (same as other entrypoint calls to avoid estimation issues)
+const CRAC_GAS_LIMIT = 2_000_000n;
+
+// Unit parameter for mark_paid entrypoint (takes unit in Ligo).
+// Raw Micheline (no PACK prefix) — matches how the frontend sends unit for claim: 03=prim, 0b=D_Unit.
+const UNIT_BYTES = '0x030b';
+
+// ---------------------------------------------------------------------------
+// Tezlink storage fetch and parse
+// ---------------------------------------------------------------------------
+
+async function fetchStorage() {
+  const response = await fetch(tezlinkStorageUrl);
+  if (!response.ok) {
+    throw new Error(`Tezlink storage fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+function parseStorage(storage) {
+  // storage: (pair last_player (pair pot (pair session_end (pair claim_requested payout_completed))))
+  const lastPlayer = storage?.args?.[0]?.bytes;
+  const pot = storage?.args?.[1]?.args?.[0]?.int;
+  const claimedPrim = storage?.args?.[1]?.args?.[1]?.args?.[1]?.args?.[0]?.prim;
+  const payoutCompletedPrim = storage?.args?.[1]?.args?.[1]?.args?.[1]?.args?.[1]?.prim;
+  return {
+    lastPlayer: lastPlayer ?? null,
+    pot: pot ?? null,
+    claimed: claimedPrim === 'True',
+    payoutCompleted: payoutCompletedPrim === 'True',
+  };
+}
+
+async function checkClaimAndPayout() {
+  let storage;
+  try {
+    storage = await fetchStorage();
+  } catch (err) {
+    console.error('Storage fetch error:', err.message);
+    return;
+  }
+
+  const { lastPlayer, pot, claimed, payoutCompleted } = parseStorage(storage);
+
+  if (!claimed) return;
+  if (payoutCompleted) return;
+  if (!lastPlayer || !pot) {
+    console.error('Storage parse: missing lastPlayer or pot');
+    return;
+  }
+
+  const winner = '0x' + lastPlayer;
+  const amount = BigInt(pot);
+
+  if (lastPlayer.length !== 40) {
+    console.error('Invalid last_player bytes length:', lastPlayer.length);
+    return;
+  }
+
+  console.log('[relayer] Winner detected:', winner);
+  console.log('[relayer] Amount:', amount.toString());
+
+  // Check if the escrow already emitted PaidOut for this winner+amount (e.g. previous run).
+  const existingPayoutTx = await checkAlreadyPaidOut(winner);
+  if (existingPayoutTx || payoutSent) {
+    console.log('[relayer] Payout already on-chain (tx:', existingPayoutTx ?? 'this run', '); skipping — calling mark_paid to sync Tezos.');
+    await callMarkPaid();
+    return;
+  }
+
+  try {
+    const tx = await escrowWithWallet.payout(winner, amount);
+    console.log('[relayer] Payout tx:', tx.hash);
+    await tx.wait();
+    payoutSent = true;
+    console.log('[relayer] Winner paid!');
+    await callMarkPaid();
+  } catch (err) {
+    const revertReason = decodeRevertReason(err);
+    if (revertReason && revertReason.toLowerCase().includes('balance too low')) {
+      // Escrow balance is zero — payout was already sent in a previous run.
+      // Set payoutSent so we don't retry payout, then sync Tezos via mark_paid.
+      payoutSent = true;
+      console.log('[relayer] Escrow balance is zero — payout was already sent. Calling mark_paid to sync Tezos.');
+      await callMarkPaid();
+    } else if (revertReason) {
+      console.error('[relayer] Payout revert reason:', revertReason);
+    } else {
+      console.error('[relayer] Payout failed:', err.shortMessage ?? err.message);
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Manual Micheline binary encoding
@@ -97,15 +195,69 @@ function encodeRecordDeposit(playerEvmAddress, amount) {
 }
 
 function decodeRevertReason(err) {
-  const revertData = err?.info?.error?.data;
-  if (!revertData || !revertData.startsWith('0x')) {
-    return null;
+  // Try multiple paths CRAC / ethers may use for the revert payload.
+  const candidates = [
+    err?.info?.error?.data,
+    err?.data,
+    err?.error?.data,
+  ];
+  for (const raw of candidates) {
+    if (!raw || typeof raw !== 'string' || !raw.startsWith('0x')) continue;
+    try {
+      const text = Buffer.from(raw.slice(2), 'hex').toString('utf8').replace(/\0/g, '').trim();
+      if (text) return text;
+    } catch { /* ignore */ }
+    return raw; // return raw hex if UTF-8 fails
   }
+  return null;
+}
+
+// Check the escrow for a PaidOut(winner, amount) event — used to avoid double-paying.
+// Looks back at most MAX_LOG_WINDOW blocks to stay within the RPC limit.
+const MAX_LOG_WINDOW = 999;
+
+async function checkAlreadyPaidOut(winner) {
+  try {
+    const currentBlock = await provider.getBlockNumber();
+    const fromBlock = Math.max(0, currentBlock - MAX_LOG_WINDOW);
+    const byWinner = await escrow.queryFilter(escrow.filters.PaidOut(winner), fromBlock, 'latest');
+    if (byWinner.length > 0) {
+      return byWinner[byWinner.length - 1].transactionHash ?? null;
+    }
+    const all = await escrow.queryFilter(escrow.filters.PaidOut(), fromBlock, 'latest');
+    if (all.length > 0) {
+      return all[all.length - 1].transactionHash ?? null;
+    }
+  } catch (err) {
+    console.error('[relayer] PaidOut query failed:', err.message);
+  }
+  return null;
+}
+
+async function callMarkPaid() {
+  console.log('[relayer] Sending mark_paid with UNIT bytes:', UNIT_BYTES);
 
   try {
-    return Buffer.from(revertData.slice(2), 'hex').toString('utf8');
-  } catch {
-    return null;
+    const tx = await gateway.callMichelson(
+      GAME_KT1,
+      'mark_paid',
+      UNIT_BYTES,
+      { gasLimit: CRAC_GAS_LIMIT }
+    );
+
+    console.log('[relayer] mark_paid CRAC tx sent:', tx.hash);
+    const receipt = await tx.wait();
+    console.log('[relayer] mark_paid confirmed in block:', receipt.blockNumber);
+  } catch (markPaidErr) {
+    const reason = decodeRevertReason(markPaidErr);
+    if (reason) {
+      console.error('[relayer] mark_paid revert reason:', reason);
+    } else {
+      // Log raw error data so we can diagnose encoding or permission issues.
+      const raw = markPaidErr?.info?.error?.data ?? markPaidErr?.data ?? null;
+      if (raw) console.error('[relayer] mark_paid raw revert data:', raw);
+    }
+    console.error('[relayer] mark_paid failed:', markPaidErr.shortMessage ?? markPaidErr.message);
   }
 }
 
@@ -113,60 +265,51 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function processTransfer(log) {
+async function processDeposited(log) {
   const key = `${log.transactionHash}:${log.index}`;
   if (processed.has(key)) return;
   processed.add(key);
 
-  const parsed = usdc.interface.parseLog(log);
-  const { from, to, value } = parsed.args;
+  const parsed = escrow.interface.parseLog(log);
+  const { player, amount } = parsed.args;
 
-  if (to.toLowerCase() !== potAddressLower) return;
-
-  console.log('Deposit detected', {
-    from,
-    to,
-    value: value.toString(),
-    txHash: log.transactionHash,
-    blockNumber: log.blockNumber,
-  });
+  console.log('[relayer] Deposit', { player, amount: amount.toString(), tx: log.transactionHash });
 
   try {
-    const encodedBytes = encodeRecordDeposit(from, value);
-    console.log('Micheline bytes:', encodedBytes);
-
-    const tx = await gateway.call(GAME_KT1, 'record_deposit', encodedBytes);
-    console.log('CRAC tx sent:', tx.hash);
-
-    const receipt = await tx.wait();
-    console.log('CRAC confirmed in block:', receipt.blockNumber);
+    const encodedBytes = encodeRecordDeposit(player, amount);
+    const tx = await gateway.callMichelson(
+      GAME_KT1,
+      'record_deposit',
+      encodedBytes,
+      { gasLimit: CRAC_GAS_LIMIT }
+    );
+    await tx.wait();
+    console.log('[relayer] record_deposit ok', tx.hash);
   } catch (err) {
     const revertReason = decodeRevertReason(err);
-    if (revertReason) {
-      console.error('Revert reason:', revertReason);
-    }
-
-    console.error('CRAC call failed:', err.shortMessage ?? err.message);
+    console.error('[relayer] record_deposit failed:', revertReason ?? err.shortMessage ?? err.message);
   }
 }
 
-async function pollTransfers() {
+async function pollDeposits() {
   const latestBlock = await provider.getBlockNumber();
   let fromBlock = Math.max(0, latestBlock - START_BLOCK_LOOKBACK);
-  console.log('Starting from block:', fromBlock);
+  console.log('[relayer] Deposited scan from block', fromBlock);
 
-  const filter = usdc.filters.Transfer(null, POT_ADDRESS);
+  const filter = escrow.filters.Deposited();
 
   while (true) {
     try {
       const currentBlock = await provider.getBlockNumber();
       if (currentBlock >= fromBlock) {
-        const logs = await usdc.queryFilter(filter, fromBlock, currentBlock);
+        const logs = await escrow.queryFilter(filter, fromBlock, currentBlock);
         for (const log of logs) {
-          await processTransfer(log);
+          await processDeposited(log);
         }
         fromBlock = currentBlock + 1;
       }
+
+      await checkClaimAndPayout();
     } catch (err) {
       console.error('Polling error:', err.message);
     }
@@ -177,11 +320,13 @@ async function pollTransfers() {
 
 async function main() {
   console.log('Relayer wallet:', wallet.address);
-  console.log('Watching USDC transfers to:', POT_ADDRESS);
-  console.log('USDC contract:', USDC_ADDRESS);
+  console.log('Watching escrow Deposited events at:', POT_ADDRESS);
   console.log('Game KT1:', GAME_KT1);
+  console.log('Tezlink storage:', tezlinkStorageUrl);
+  console.log('Payout: will call escrow.payout(winner, amount) when claimed=true');
 
-  await pollTransfers();
+  await pollDeposits();
 }
 
 main().catch(console.error);
+

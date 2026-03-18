@@ -1,0 +1,80 @@
+{ parameter
+    (or (unit %mark_paid)
+        (or (unit %claim) (or (pair %record_deposit bytes nat) (int %start_session)))) ;
+  storage
+    (pair (bytes %last_player)
+          (pair (nat %pot)
+                (pair (timestamp %session_end)
+                      (pair (bool %claim_requested) (bool %payout_completed))))) ;
+  code { UNPAIR ;
+         IF_LEFT
+           { DROP ;
+             DUP ;
+             GET 7 ;
+             IF { DUP ;
+                  GET 8 ;
+                  IF { PUSH string "ALREADY_PAID" ; FAILWITH }
+                     { PUSH bool True ; UPDATE 8 ; NIL operation ; PAIR } }
+                { PUSH string "NO_CLAIM_REQUESTED" ; FAILWITH } }
+           { IF_LEFT
+               { DROP ;
+                 DUP ;
+                 GET 5 ;
+                 NOW ;
+                 COMPARE ;
+                 LT ;
+                 IF { PUSH string "SESSION_ACTIVE" ; FAILWITH }
+                    { DUP ;
+                      GET 7 ;
+                      IF { PUSH string "CLAIM_ALREADY_REQUESTED" ; FAILWITH }
+                         { PUSH nat 0 ;
+                           DUP 2 ;
+                           GET 3 ;
+                           COMPARE ;
+                           EQ ;
+                           IF { PUSH string "EMPTY_POT" ; FAILWITH }
+                              { PUSH bool True ; UPDATE 7 ; NIL operation ; PAIR } } } }
+               { IF_LEFT
+                   { UNPAIR ;
+                     DUP 3 ;
+                     GET 5 ;
+                     NOW ;
+                     COMPARE ;
+                     GT ;
+                     IF { PUSH string "SESSION_ENDED" ; FAILWITH }
+                        { DUP 3 ;
+                          GET 7 ;
+                          IF { PUSH string "CLAIM_ALREADY_REQUESTED" ; FAILWITH }
+                             { DUP 3 ;
+                               SWAP ;
+                               UPDATE 1 ;
+                               SWAP ;
+                               DIG 2 ;
+                               GET 3 ;
+                               ADD ;
+                               UPDATE 3 ;
+                               NIL operation ;
+                               PAIR } } }
+                   { DUP 2 ;
+                     GET 8 ;
+                     NOT ;
+                     DUP 3 ;
+                     GET 7 ;
+                     AND ;
+                     IF { PUSH string "PAYOUT_PENDING" ; FAILWITH }
+                        { SWAP ;
+                          PUSH bytes 0x0000000000000000000000000000000000000000 ;
+                          UPDATE 1 ;
+                          PUSH nat 0 ;
+                          UPDATE 3 ;
+                          SWAP ;
+                          NOW ;
+                          ADD ;
+                          UPDATE 5 ;
+                          PUSH bool False ;
+                          UPDATE 7 ;
+                          PUSH bool False ;
+                          UPDATE 8 ;
+                          NIL operation ;
+                          PAIR } } } } } }
+

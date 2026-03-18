@@ -25,16 +25,10 @@ It:
 - calls the CRAC precompile
 - triggers `record_deposit` on the Michelson contract
 
-### `tezosx-tezlink`
+### `contracts/`
 
-The CameLIGO / Michelson contract source for the XButton game logic.
-
-It stores:
-- admin
-- last player
-- pot
-- session end
-- claimed flag
+- **`contracts/evm`** – EVM contracts: `xUSDC.sol` (ERC-20 token), `xEscrow.sol` (XButtonEscrow).
+- **`contracts/tezlink`** – CameLIGO / Michelson XButton game (`last_player`, `pot`, `session_end`, `claim_requested`, `payout_completed`).
 
 ## XButton Demo Flow
 
@@ -42,7 +36,7 @@ It stores:
 2. The player presses the button, which sends `1 USDC` to the pot address on the EVM runtime.
 3. `xbutton-relayer` detects the ERC-20 transfer event.
 4. The relayer encodes the payload and calls the CRAC gateway precompile.
-5. The Tezos runtime contract in `tezosx-tezlink` updates storage.
+5. The Tezos runtime contract in `contracts/tezlink` updates storage.
 6. `xbutton-frontend` polls Tezlink and shows the updated pot / player state.
 
 ## Shared Live Demo Values
@@ -54,8 +48,12 @@ These are the values currently used in the workspace:
 - Chain ID: `127124`
 - USDC token: `0x92E791DF3Dd5A8704f0e7d9B3003A0627d95d017`
 - Pot address: `0xA8D4F48e9E5a17e13Bfbe3A60bbEd85b96552277`
-- Michelson contract: `KT1BKvMg5EWcv1TFMkvxo2zAAbUbUefh8EvS`
+- Michelson contract: `KT1Whp8174wXWCmhKKojfS3AdzKgTRaH9mie`
 - CRAC precompile: `0xff00000000000000000000000000000000000007`
+
+## Tezos ↔ EVM address helpers
+
+The EVM RPC exposes **`tez_getEthereumTezosAddress`** and **`tez_getTezosEthereumAddress`** (see chain docs). The game contract’s `mark_paid` entrypoint is permissionless (guarded by claim state only); CRAC does not reliably expose the caller as a specific Tezos `SENDER` for admin-style checks.
 
 ## Get Testnet USDC
 
@@ -83,6 +81,6 @@ That starts:
 
 - The relayer is separate from the frontend. If the relayer is not running, the Tezos-side pot will not update.
 - The contract session must be active before deposits will update state.
-- The frontend has hardcoded demo values at the moment, based on the addresses already in this workspace.
+- Configure **`xbutton-frontend/.env`** and **`xbutton-relayer/.env`** (see `.env.example` in the frontend). Demo addresses in README may be stale.
 - `evm-airdrop-app` exists locally in the workspace, but it is intentionally excluded from this root repository.
 - Each project folder contains its own README with more detail.

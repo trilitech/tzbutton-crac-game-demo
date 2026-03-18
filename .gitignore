@@ -7,9 +7,11 @@ package-lock.json
 
 evm-airdrop-app/
 
+tezosx-tezlink/
+
 xbutton-frontend/node_modules/
 xbutton-frontend/dist/
 
 xbutton-relayer/node_modules/
 
-tezosx-tezlink/.ligo/
+contracts/tezlink/ligo/.ligo/

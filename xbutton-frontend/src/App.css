@@ -104,6 +104,26 @@
   line-height: 1.45;
 }
 
+.explorer-link {
+  color: #6bbf8a;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.explorer-link:hover {
+  color: #87e3a1;
+  border-bottom-color: #87e3a1;
+}
+
+.status .explorer-link {
+  color: #6bbf8a;
+}
+
+.status .explorer-link:hover {
+  color: #87e3a1;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
